@@ -1,0 +1,17 @@
+[package]
+name = "mandelbrust"
+version = "0.2.3"
+authors = ["ph04 alessio.bandiera02@gmail.com"]
+edition = "2018"
+
+[dependencies]
+ggez = "0.5.1"
+num = "0.4.0"
+rayon = "1.5.1"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "pixel_rendering"
+harness = false
