@@ -1,8 +1,13 @@
 [package]
 name = "mandelbrust"
-version = "0.2.3"
+version = "1.0.0"
 authors = ["ph04 alessio.bandiera02@gmail.com"]
 edition = "2018"
+description = "A Mandelbrot set explorer written in Rust, using `ggez` as renderer."
+repository = "https://github.com/ph04/mandelbrust"
+readme = "README.md"
+license = "GNU General Public License v3.0"
+keywords = ["fractal", "mandelbrot", "mandelbrot-fractal", "fractals", "fractal-rendering", "mandelbrot-set", "rust-mandelbrot", "rust-fractal"]
 
 [dependencies]
 ggez = "0.5.1"

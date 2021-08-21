@@ -1,19 +1,48 @@
 use num::Complex;
+use std::fmt;
 
 const X_RANGE: (f32, f32) = (-2.0, 1.0);
 const Y_RANGE: (f32, f32) = (-1.0, 1.0);
 const X_DIFF: f32 = X_RANGE.1 - X_RANGE.0;
 const Y_DIFF: f32 = Y_RANGE.1 - Y_RANGE.0;
-const FACTOR: usize = 350;
-pub const W: usize = X_DIFF as usize * FACTOR;
-pub const H: usize = Y_DIFF as usize * FACTOR;
-pub const ESCAPE_POINT: usize = 1024;
+
+const SCALING_FACTOR: usize = 350;
+
+pub const W: usize = X_DIFF as usize * SCALING_FACTOR;
+pub const H: usize = Y_DIFF as usize * SCALING_FACTOR;
+pub const ESCAPE_POINT: usize = 128;
+
+/// A color gradient used in the Wikipedia page
+/// of the Mandelbrot set, which seems to match
+/// the color gradient used in Ultra Fractal.
+/// 
+/// (*Check [this](https://stackoverflow.com/questions/16500656/which-color-gradient-is-used-to-color-mandelbrot-in-wikipedia)
+/// Stack Overflow question for reference*).
+pub const COLOR_MAP: [[u8; 4]; 16] = [
+    [ 66,  30,  15, 255], // brown 3
+    [ 25,   7,  26, 255], // dark violett
+    [  9,   1,  47, 255], // darkest blue
+    [  4,   4,  73, 255], // blue 5
+    [  0,   7, 100, 255], // blue 4
+    [ 12,  44, 138, 255], // blue 3
+    [ 24,  82, 177, 255], // blue 2
+    [ 57, 125, 209, 255], // blue 1
+    [134, 181, 229, 255], // blue 0
+    [211, 236, 248, 255], // lightest blue
+    [241, 233, 191, 255], // lightest yellow
+    [248, 201,  95, 255], // light yellow
+    [255, 170,   0, 255], // dirty yellow
+    [204, 128,   0, 255], // brown 0
+    [153,  87,   0, 255], // brown 1
+    [106,  52,   3, 255], // brown 2
+];
 
 pub trait Plottable {
     type Coordinates;
 
     fn new(coordinates: Self::Coordinates) -> Self;
     fn coordinates(&self) -> Self::Coordinates;
+    fn coordinates_mut(&mut self) -> &mut Self::Coordinates;
     fn update(&mut self, coordinates: Self::Coordinates);
 }
 
@@ -30,8 +59,18 @@ macro_rules! impl_plottable {
                 self.coordinates
             }
 
+            fn coordinates_mut(&mut self) -> &mut Self::Coordinates {
+                &mut self.coordinates
+            }
+
             fn update(&mut self, coordinates: Self::Coordinates) {
                 self.coordinates = coordinates
+            }
+        }
+
+        impl fmt::Display for $struct {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{:?}", self.coordinates)
             }
         }
     };
@@ -51,21 +90,40 @@ pub struct MandelPoint {
 
 impl_plottable!(MandelPoint, (f32, f32));
 
+impl From<Complex<f32>> for MandelPoint {
+    fn from(complex: Complex<f32>) -> Self {
+        MandelPoint::new((complex.re, complex.im))
+    }
+}
+
+impl From<Point> for MandelPoint {
+    fn from(point: Point) -> Self {
+        let coordinates = point.coordinates();
+
+        MandelPoint::new((
+            X_DIFF * coordinates.0 as f32 / W as f32 + X_RANGE.0,
+            Y_DIFF * coordinates.1 as f32 / H as f32 + Y_RANGE.0
+        ))
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
     coordinates: (usize, usize)
 }
 
-impl Point {
-    pub fn to_mandelpoint(&self, screen: (usize, usize)) -> MandelPoint {
-        MandelPoint::new((
-            X_DIFF * self.coordinates.0 as f32 / screen.0 as f32 + X_RANGE.0,
-            Y_DIFF * self.coordinates.1 as f32 / screen.1 as f32 + Y_RANGE.0
+impl_plottable!(Point, (usize, usize));
+
+impl From<MandelPoint> for Point {
+    fn from(mandelpoint: MandelPoint) -> Self {
+        let coordinates = mandelpoint.coordinates();
+
+        Point::new((
+            (W as f32 * (coordinates.0 - X_RANGE.0) as f32 / X_DIFF as f32) as usize,
+            (H as f32 * (coordinates.1 - Y_RANGE.0) as f32 / Y_DIFF as f32) as usize,
         ))
     }
 }
-
-impl_plottable!(Point, (usize, usize));
 
 pub struct MandelIter {
     curr: Complex<f32>,
@@ -84,13 +142,9 @@ impl MandelIter {
 }
 
 impl Iterator for MandelIter {
-    type Item = Complex<f32>;
+    type Item = MandelPoint;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // if self.curr.re < X_RANGE.0 ||
-        //    self.curr.re > X_RANGE.1 ||
-        //    self.curr.im < Y_RANGE.0 ||
-        //    self.curr.im > Y_RANGE.1
         // checks if the distance between the origin
         // and the current point is more than 2
         if self.curr.re * self.curr.re + self.curr.im * self.curr.im > 4.0 {
@@ -98,78 +152,9 @@ impl Iterator for MandelIter {
         } else {
             self.curr = self.curr * self.curr + self.c;
 
-            Some(self.curr)
+            let next = MandelPoint::from(self.curr);
+
+            Some(next)
         }
     }
 }
-
-// macro_rules! impl_fields {
-//     ($field:ident, $type:ty) => {
-//         pub fn $field(&self) -> $type {
-//             self.$field
-//         }
-//     };
-// }
-
-// pub struct HSV {
-//     h: u16,
-//     s: u8,
-//     v: u8,
-// }
-
-// impl HSV {
-//     pub fn new(h: u16, s: u8, v: u8) -> Self {
-//         Self { h, s, v }
-//     }
-
-//     pub fn to_rgb(&self) -> RGB {
-//         let c = self.v as isize * self.s as isize;
-//         let x = c * (1 - ((self.h as isize / 60) % 2 - 1).abs());
-//         let m = self.v as isize - c as isize;
-
-//         let triple = if self.h < 60 {
-//             (c, x, 0)
-//         } else if self.h < 120 {
-//             (x, c, 0)
-//         } else if self.h < 180 {
-//             (0, c, x)
-//         } else if self.h < 240 {
-//             (0, x, c)
-//         } else if self.h < 300 {
-//             (x, 0, c)
-//         } else if self.h < 360 {
-//             (c, 0, x)
-//         } else {
-//             (0, 0, 0) // idk
-//         };
-
-//         println!("{:?}", triple);
-
-//         RGB::new(
-//             ((triple.0 + m) * 255).try_into().unwrap(),
-//             ((triple.1 + m) * 255).try_into().unwrap(),
-//             ((triple.2 + m) * 255).try_into().unwrap(),
-//         )
-//     }
-
-//     impl_fields!(h, u16);
-//     impl_fields!(s, u8);
-//     impl_fields!(v, u8);
-// }
-
-
-// pub struct RGB {
-//     r: u8,
-//     g: u8,
-//     b: u8,
-// }
-
-// impl RGB {
-//     pub fn new(r: u8, g: u8, b: u8) -> Self {
-//         Self { r, g, b }
-//     }
-
-//     impl_fields!(r, u8);
-//     impl_fields!(g, u8);
-//     impl_fields!(b, u8);
-// }
