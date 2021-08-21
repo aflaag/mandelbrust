@@ -12,9 +12,7 @@ fn pixel_rendering() {
     //     (0..W).into_par_iter().map(|x| {
     //         let pixel = Point::new((x, y));
 
-    //         let mapped_pixel = pixel.into();
-
-    //         let iter = MandelIter::new(mapped_pixel);
+    //         let iter = MandelIter::new(pixel.into());
 
     //         let iterations = iter.enumerate().take_while(|(idx, _)| *idx <= ESCAPE_POINT).count();
 
@@ -34,9 +32,7 @@ fn pixel_rendering() {
         row.par_chunks_mut(4).enumerate().for_each(|(x, chunks_pixel)| {
             let pixel = Point::new((x, y));
 
-            let mapped_pixel = pixel.into();
-
-            let iter = MandelIter::new(mapped_pixel);
+            let iter = MandelIter::new(pixel.into());
 
             let iterations = iter.enumerate().take_while(|(idx, _)| *idx <= ESCAPE_POINT).count();
 

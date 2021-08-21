@@ -1,12 +1,12 @@
 #![allow(incomplete_features)]
 #![feature(const_generics, const_evaluatable_checked)]
 
-use std::{convert::TryInto};
-
+use std::convert::TryInto;
 use ggez::{Context, ContextBuilder, GameResult, conf, event, graphics::{self, Color, DrawParam}, input::mouse, nalgebra::Point2};
 use rayon::{iter::{IndexedParallelIterator, ParallelIterator}, slice::ParallelSliceMut};
 use mandelbrust::utils::*;
 
+/// The color red `#FF0000FF`.
 const RED: Color = Color {
     r: 1.0,
     g: 0.0,
@@ -14,22 +14,48 @@ const RED: Color = Color {
     a: 1.0,
 };
 
+/// The main struct of the application.
+/// It handles the whole rendering of the fractal
+/// by using the tools provided by the `ggez` crate.
+/// `W` and `H` are respectively the width and the
+/// height of the window.
+/// 
+/// **Note**: this program uses `ggez 0.5.1`, but the current latest version
+/// is `0.6.0`, and this is due to a heavy drop in performance.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct MandelPlane<const W: usize, const H: usize> {
     cursor: Cursor,
 }
 
 impl<const W: usize, const H: usize> MandelPlane<W, H> {
+    /// Returns an instance of the main struct, with
+    /// the cursor position set on `(0, 0)` by default.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// # pub use mandelbrust::MandelPlane;
+    /// const W: usize = 300;
+    /// const H: usize = 200;
+    /// 
+    /// let state = &mut MandelPlane::<W, H>::new().expect("Error while trying to build the state"); // `ggez 0.5.1`
+    /// ```
     fn new() -> GameResult<MandelPlane<W, H>> {
         Ok(Self {
-            cursor: Cursor::new((0, 0))
+            cursor: Cursor::new((0, 0)),
         })
     }
 
+    /// Returns the color of the corresponding
+    /// number of `iterations`. The color gradient
+    /// used is the one used in the [Wikipedia page of 
+    /// the Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set),
+    /// which seems to macth the color gradient used in Ultra Fractal.
+    /// 
+    /// (*Check [this](https://stackoverflow.com/questions/16500656/which-color-gradient-is-used-to-color-mandelbrot-in-wikipedia)
+    /// Stack Overflow question for reference*).
     fn map_color(iterations: usize) -> [u8; 4] {
-        let idx = iterations % 16;
-
-        COLOR_MAP[idx]
+        COLOR_MAP[iterations % 16]
     }
 }
 
@@ -38,28 +64,28 @@ where
     [(); H * W * 4]: ,
     [(); W * 4]: ,
 {
+    /// The `update()` implementation of the `EventHandler` trait.
+    /// It constantly updates the cursor position.
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let coords = mouse::position(ctx);
 
         let x = coords.x as usize;
         let y = coords.y as usize;
 
-        // update the cursor position
-        // if the cursor is not out of
-        // the boundaries of the window
-        if x < W && y < H {
-            self.cursor.update((x, y));
-        }
+        self.cursor.update((x, y));
 
         Ok(())
     }
 
+    /// The `draw()` implementation of the `EventHandler` trait.
+    /// It draws the Mandelbrot set and a red line, which shows
+    /// the first `utils::ESCAPE_POINT` bounces of the mouse-pointed value.
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         // draw background
         graphics::clear(ctx, graphics::BLACK);
 
         // build the Mandelbrot set
-        let mut rgba = vec![0; H * W * 4];
+        let mut rgba = vec![0; H * W * 4]; // has to be on the heap, otherwise it overflows the stack
 
         rgba.par_chunks_mut(W * 4).enumerate().for_each(|(y, chunks_row)| {
             let mut row = [0; W * 4];
@@ -67,9 +93,7 @@ where
             row.par_chunks_mut(4).enumerate().for_each(|(x, chunks_pixel)| {
                 let pixel = Point::new((x, y));
 
-                let mapped_pixel = pixel.into();
-
-                let iter = MandelIter::new(mapped_pixel);
+                let iter = MandelIter::new(pixel.into());
 
                 let iterations = iter.enumerate().take_while(|(idx, _)| *idx <= ESCAPE_POINT).count();
 
@@ -96,7 +120,12 @@ where
         // map the position of the cursor
         // to a point in the Mandelbrot plane
         // let mapped_cursor = inverted_cursor.to_mandelpoint();
-        let mapped_cursor = inverted_cursor.into();
+        let mapped_cursor: MandelPoint = inverted_cursor.into();
+
+        // check if the `Mesh` is drawable
+        if mapped_cursor.is_distance_less_than(MANDELPOINT_ZERO, CUSTOM_EPSILON) || !mapped_cursor.is_distance_less_than(MANDELPOINT_ZERO, 2.0) {
+            return Ok(())
+        }
 
         let iter = MandelIter::new(mapped_cursor);
 
@@ -114,8 +143,8 @@ where
             
             let (x, y) = next.coordinates_mut();
 
-            // invert the position to map correctly
-            // the point on the screen
+            // invert the y coordinate to correctly
+            // map the point on the screen
             *y = H - *y;
 
             points.push(Point2::new(*x as f32, *y as f32));
@@ -140,7 +169,7 @@ fn main() -> GameResult {
     let cb = ContextBuilder::new("MandelbRust", "ph04")
         .window_setup(conf::WindowSetup {
             title: "MandelbRust".to_owned(),
-            samples: conf::NumSamples::Zero,
+            samples: conf::NumSamples::Eight,
             vsync: true,
             icon: "".to_owned(),
             srgb: true,
