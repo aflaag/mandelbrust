@@ -119,7 +119,6 @@ where
 
         // map the position of the cursor
         // to a point in the Mandelbrot plane
-        // let mapped_cursor = inverted_cursor.to_mandelpoint();
         let mapped_cursor: MandelPoint = inverted_cursor.into();
 
         // check if the `Mesh` is drawable

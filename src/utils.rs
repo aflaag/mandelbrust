@@ -27,6 +27,9 @@ pub const H: usize = Y_DIFF as usize * SCALING_FACTOR;
 /// iterated through the Mandelbrot set equation.
 pub const ESCAPE_POINT: usize = 128;
 
+/// A constant used to check if the cursor
+/// is at the center of the Mandelbrot plane,
+/// to avoid crashes while rendering the red line.
 pub const CUSTOM_EPSILON: f32 = 0.065;
 
 /// The color gradient used in the [Wikipedia page of
@@ -161,10 +164,10 @@ macro_rules! impl_ops {
 }
 
 /// A macro used to implement `Plottable`,
-/// some `std::ops` traits and `Display`
+/// some `std::ops` traits, `Default` and `Display`
 /// to `Cursor`, `MandelPoint` and `Point`.
 macro_rules! impl_2d_entity {
-    ($struct:ty, $type:ty) => {
+    ($struct:ty, $type:ty, $const:ident) => {
         impl Plottable for $struct {
             type Coordinates = ($type, $type);
 
@@ -200,6 +203,15 @@ macro_rules! impl_2d_entity {
         impl_ops!($struct, Mul, $type, *, mul);
         impl_ops!($struct, Div, $type, /, div);
 
+        impl Default for $struct {
+            #[doc = "Returns `"]
+            #[doc = stringify!($const)]
+            #[doc = "` ."]
+            fn default() -> Self {
+                $const
+            }
+        }
+
         impl fmt::Display for $struct {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "{:?}", self.coordinates)
@@ -215,14 +227,7 @@ pub struct Cursor {
     coordinates: (usize, usize),
 }
 
-impl_2d_entity!(Cursor, usize);
-
-impl Default for Cursor {
-    /// Returns `utils::CURSOR_ZERO`.
-    fn default() -> Self {
-        CURSOR_ZERO
-    }
-}
+impl_2d_entity!(Cursor, usize, CURSOR_ZERO);
 
 /// A struct used to represent any point
 /// on the Mandelbrot plane.
@@ -231,7 +236,7 @@ pub struct MandelPoint {
     coordinates: (f32, f32),
 }
 
-impl_2d_entity!(MandelPoint, f32);
+impl_2d_entity!(MandelPoint, f32, MANDELPOINT_ZERO);
 
 impl From<Complex<f32>> for MandelPoint {
     fn from(complex: Complex<f32>) -> Self {
@@ -258,20 +263,13 @@ impl From<MandelPoint> for Complex<f32> {
     }
 }
 
-impl Default for MandelPoint {
-    /// Returns `utils::MANDELPOINT_ZERO`.
-    fn default() -> Self {
-        MANDELPOINT_ZERO
-    }
-}
-
 /// A struct used to represent a generic 2D point.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Point {
     coordinates: (usize, usize),
 }
 
-impl_2d_entity!(Point, usize);
+impl_2d_entity!(Point, usize, POINT_ZERO);
 
 impl From<MandelPoint> for Point {
     fn from(mandelpoint: MandelPoint) -> Self {
@@ -281,13 +279,6 @@ impl From<MandelPoint> for Point {
             (W as f32 * (coordinates.0 - X_RANGE.0) as f32 / X_DIFF as f32) as usize,
             (H as f32 * (coordinates.1 - Y_RANGE.0) as f32 / Y_DIFF as f32) as usize,
         ))
-    }
-}
-
-impl Default for Point {
-    /// Returns `utils::POINT_ZERO`.
-    fn default() -> Self {
-        POINT_ZERO
     }
 }
 
