@@ -6,7 +6,7 @@ edition = "2018"
 description = "A Mandelbrot set explorer written in Rust, using `ggez` as renderer."
 repository = "https://github.com/ph04/mandelbrust"
 readme = "README.md"
-license = "GNU General Public License v3.0"
+license = "GPL-3.0+"
 keywords = ["fractal", "mandelbrot", "mandelbrot-fractal", "fractals", "fractal-rendering", "mandelbrot-set", "rust-mandelbrot", "rust-fractal"]
 
 [dependencies]
